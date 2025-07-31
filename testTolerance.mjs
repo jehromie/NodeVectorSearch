@@ -40,7 +40,19 @@ async function testSearchTolerance() {
       stripNewLines: true,
     });
 
-    const testQueries = ["rats", "help me", "setup issues", "problems with installation"];
+    const testQueries = [
+      "rats", 
+      "rat", 
+      "lowest rat", 
+      "what is the lowest rat",
+      "help me", 
+      "setup issues", 
+      "problems with installation",
+      "fixed rates",
+      "interst rates", // typo test
+      "morgage", // typo test
+      "loa terms" // abbreviation test
+    ];
     
     for (const query of testQueries) {
       console.log(`\n=== Testing query: "${query}" ===`);

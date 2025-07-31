@@ -9,17 +9,41 @@ function preprocessQuery(query: string): string {
   // Add common synonyms and related terms for better matching
   const synonymMap: { [key: string]: string[] } = {
     'rats': ['problems', 'issues', 'bugs', 'errors', 'troubleshooting'],
+    'rat': ['rate', 'rates', 'interest rate', 'pricing', 'cost'],
     'help': ['assistance', 'support', 'guide', 'tutorial'],
     'setup': ['install', 'configure', 'installation', 'configuration'],
     'run': ['execute', 'start', 'launch'],
     'fix': ['solve', 'repair', 'troubleshoot'],
     'error': ['problem', 'issue', 'bug', 'trouble'],
+    'lowest': ['minimum', 'cheapest', 'best', 'reduced'],
+    'fixed': ['locked', 'stable', 'unchanging'],
+    'term': ['period', 'duration', 'length', 'time'],
+    'loan': ['mortgage', 'lending', 'borrowing', 'finance'],
+    'bank': ['banking', 'financial', 'institution'],
   };
   
+  // Fuzzy matching for common typos and abbreviations
+  const fuzzyMap: { [key: string]: string } = {
+    'rat': 'rate',
+    'rats': 'rates',
+    'loa': 'loan',
+    'interst': 'interest',
+    'morgage': 'mortgage',
+    'finacial': 'financial',
+    'bnak': 'bank',
+  };
+  
+  // Apply fuzzy corrections
+  let correctedQuery = lowercaseQuery;
+  for (const [typo, correction] of Object.entries(fuzzyMap)) {
+    const regex = new RegExp(`\\b${typo}\\b`, 'g');
+    correctedQuery = correctedQuery.replace(regex, correction);
+  }
+  
   // Check if query contains any keys from synonym map
-  let expandedQuery = lowercaseQuery;
+  let expandedQuery = correctedQuery;
   for (const [key, synonyms] of Object.entries(synonymMap)) {
-    if (lowercaseQuery.includes(key)) {
+    if (correctedQuery.includes(key)) {
       expandedQuery += ' ' + synonyms.join(' ');
     }
   }
@@ -37,6 +61,8 @@ export async function POST(req: Request) {
   
   // Preprocess and expand the query for better tolerance
   const expandedQuery = preprocessQuery(question);
+  console.log(`Original query: "${question}"`);
+  console.log(`Expanded query: "${expandedQuery}"`);
   
   // Create embeddings for the query
   const embeddings = new OpenAIEmbeddings({
@@ -69,6 +95,10 @@ export async function POST(req: Request) {
   ];
   
   const results = await collection.aggregate(pipeline).toArray();
+  console.log(`Initial search found ${results.length} results`);
+  if (results.length > 0) {
+    console.log(`Top score: ${results[0].score.toFixed(3)}`);
+  }
   
   // If we don't get good results, try a broader search
   let finalResults = results;
@@ -98,6 +128,10 @@ export async function POST(req: Request) {
     ];
     
     const broadResults = await collection.aggregate(broadPipeline).toArray();
+    console.log(`Broader search found ${broadResults.length} results`);
+    if (broadResults.length > 0) {
+      console.log(`Broader search top score: ${broadResults[0].score.toFixed(3)}`);
+    }
     finalResults = broadResults.length > results.length ? broadResults : results;
   }
   
