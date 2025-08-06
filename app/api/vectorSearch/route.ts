@@ -1,6 +1,6 @@
-import { OpenAIEmbeddings } from "langchain/embeddings/openai";
-import { ChatOpenAI } from "langchain/chat_models/openai";
-import { HumanMessage, SystemMessage } from "langchain/schema";
+import { OpenAIEmbeddings } from "@langchain/openai";
+import { ChatOpenAI } from "@langchain/openai";
+import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import mongoClientPromise from '@/app/lib/mongodb';
 
 // Function to use OpenAI to correct and expand unclear queries
@@ -32,8 +32,10 @@ Return only the corrected/expanded query, nothing else.`),
       new HumanMessage(`Correct and expand this query: "${query}"`)
     ];
 
-    const response = await chatModel.call(messages);
-    const correctedQuery = response.content.trim();
+    const response = await chatModel.invoke(messages);
+    const correctedQuery = typeof response.content === 'string' 
+      ? response.content.trim() 
+      : String(response.content).trim();
     console.log(`OpenAI corrected "${query}" → "${correctedQuery}"`);
     return correctedQuery;
   } catch (error) {
@@ -143,5 +145,9 @@ export async function POST(req: Request) {
     metadata: { score: doc.score }
   }));
   
-  return Response.json(documents);
+  return new Response(JSON.stringify(documents), {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
 }
