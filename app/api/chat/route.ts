@@ -1,6 +1,5 @@
-import { StreamingTextResponse, LangChainStream, Message } from 'ai';
-import { ChatOpenAI } from 'langchain/chat_models/openai';
-import { AIMessage, HumanMessage } from 'langchain/schema';
+import { streamText } from 'ai';
+import { openai } from '@ai-sdk/openai';
 
 export const runtime = 'edge';
 
@@ -16,7 +15,18 @@ export async function POST(req: Request) {
     body: currentMessageContent,
   }).then((res) => res.json());
 
-  const TEMPLATE = `You are a very enthusiastic freeCodeCamp.org representative who loves to help people! Given the following sections from the freeCodeCamp.org contributor documentation, answer the question using only that information, outputted in markdown format. If you are unsure and the answer is not explicitly written in the documentation, say "Sorry, I don't know how to help with that."
+  console.log(`Vector search for "${currentMessageContent}" found ${vectorSearch.length} results`);
+  if (vectorSearch.length > 0) {
+    console.log(`Top result score: ${vectorSearch[0].metadata?.score}`);
+  }
+
+  const TEMPLATE = `I am an RAG (Retrieval-Augmented Generation) proof of concept.
+
+  Instructions for handling different types of queries:
+  1.Always try to provide some useful information if any context is provided, even if the match isn't perfect
+  2.Only say "Sorry, I don't know how to help with that" if the question is completely unrelated to what is in the RAG database.
+
+  When you find relevant information, always explain how it relates to the user's question, even if the connection isn't obvious. If the query seems incomplete, acknowledge this and provide the best related information you can find.
   
   Context sections:
   ${JSON.stringify(vectorSearch)}
@@ -30,24 +40,11 @@ export async function POST(req: Request) {
   const messages = body.messages || [{ role: 'user', content: currentMessageContent }];
   messages[messages.length - 1].content = TEMPLATE;
 
-  const { stream, handlers } = LangChainStream();
-
-  const llm = new ChatOpenAI({
-    modelName: "gpt-3.5-turbo",
-    streaming: true,
+  const result = await streamText({
+    model: openai('gpt-3.5-turbo'),
+    messages: messages,
+    temperature: 0.9, // Add this line to control response creativity
   });
 
-  llm
-    .call(
-      (messages as Message[]).map(m =>
-        m.role == 'user'
-          ? new HumanMessage(m.content)
-          : new AIMessage(m.content),
-      ),
-      {},
-      [handlers],
-    )
-    .catch(console.error);
-
-  return new StreamingTextResponse(stream);
+  return result.toTextStreamResponse();
 }
